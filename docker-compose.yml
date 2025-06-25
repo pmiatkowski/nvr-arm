@@ -1,0 +1,91 @@
+services:
+  # MediaMTX Service (RTSP server) https://github.com/bluenviron/mediamtx?tab=readme-ov-file#rtsp-clients
+  mediamtx:
+    image: bluenviron/mediamtx:latest-ffmpeg-rpi
+    container_name: mediamtx
+    hostname: mediamtx
+    restart: unless-stopped
+    build:
+      context: .
+    privileged: true
+    environment:
+      - MTX_RTSPTRANSPORTS=tcp,udp
+      - MTX_WEBRTCADDITIONALHOSTS=192.168.50.57
+    ports:
+      - "8554:8554"  # RTSP Port
+      - "1935:1935"  # RTMP Port (if needed)
+      - "8888:8888"  # HTTP Port (if needed)
+    devices:
+      - "/dev:/dev"
+    volumes:
+      - ./tmp:/tmp  # Optional: if you need to access logs or other shared data
+      - ./mediamtx.yml:/mediamtx.yml:ro
+      - ./mediamtx.log:/mediamtx.log:rw
+      - /run/udev:/run/udev:ro
+      - /dev/shm:/dev/shm:exec
+      - ./detect_camera.sh:/detect_camera.sh:ro
+    network_mode: host
+
+  motioneye:
+    image: ccrisan/motioneye:master-armhf
+    container_name: motioneye
+    hostname: motioneye
+    restart: unless-stopped
+    privileged: true
+    build:
+      context: .
+    ports:
+      - "8765:8765"
+      - "8081:8081"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./etc/motioneye:/etc/motioneye
+      - ./etc/motion:/etc/motion
+      - ./lib:/var/lib/motioneye
+      - ./motion.conf:/etc/motion/motion.conf:rw
+    devices:
+      - "/dev:/dev"
+    network_mode: host
+    
+  mosquitto:
+    image: eclipse-mosquitto
+    container_name: mosquitto
+    restart: unless-stopped
+    hostname: mosquitto
+    ports:
+      - "9001:9001"
+      - "1883:1883"
+#    environment:
+#      - PUID=1883
+#      - PGID=1883
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto.pass:/etc/mosquitto.pass:rw
+      - ./mosquitto/log:/mosquitto/log
+      - ./mosquitto/data:/mosquitto/data
+    network_mode: host
+    
+# # This is an independed lightweight streaming with ffmpeg. It can be used instead of direct invocation of ffmpeg command in the mediamtx.xml file
+# # Its good if you don't want to install ffmpeg libraries on the device or you don't want to use the built-in ffmpeg in the mediamtx
+#  alpine-stream:
+#    build:
+#      context: .
+#      dockerfile: alpine-stream.dockerfile
+#    container_name: stream
+#    restart: unless-stopped
+#    devices:
+#      - /dev/video1:/dev/video1
+#    environment:
+#      - RESOLUTION=1280x768
+#      - FRAME_RATE=5
+#      - DEVICE=/dev/video1
+#      - RTSP_URL=rtsp://localhost:8554/stream
+
+#    depends_on:
+#      - mediamtx
+#    networks:
+#      - stream_network
+
+# networks:
+#   stream_network:
+#     external: true
