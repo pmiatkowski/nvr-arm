@@ -1,6 +1,6 @@
 # Streaming tools
 
-This package contains **Motioneye** and [**Mediamtx**](https://github.com/bluenviron/mediamtx?tab=readme-ov-file) containers configured to work on *AllWinner Orange Pi Zero 2 W* device.
+This package contains **Motioneye**, [**Mediamtx**](https://github.com/bluenviron/mediamtx?tab=readme-ov-file), [**ThermalController**](https://github.com/pmiatkowski/thermal-controller) containers configured to work on *AllWinner Orange Pi Zero 2 W* device.
 
 Mediamtx is used to stream video via RTSP protocol.
 
@@ -12,7 +12,7 @@ Initial setup assumes that one can set it up to stream video via Multicast UDP p
 
 ## Optional FFMPEG container
 
-This is an independed lightweight streaming with ffmpeg. It can be used instead of direct invocation of ffmpeg command in the mediamtx.xml file.
+This is an independed lightweight streaming with ffmpeg. It can be used ict invocation of ffmpeg command in the mediamtx.xml file.
 Its good if you don't want to install ffmpeg libraries on the device or you don't want to use the built-in ffmpeg in the mediamtx
 
 ### Add this to the docker-compose.yml file

@@ -1,4 +1,44 @@
 services:
+  thermal-manager:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile
+    container_name: thermal-manager
+    restart: unless-stopped
+    privileged: true  # Required for CPU governor control
+    volumes:
+      - /sys:/sys:rw  # Access to CPU frequency scaling
+      - /proc:/proc:rw  # Access to system info with write permissions
+      - /var/run/docker.sock:/var/run/docker.sock  # Docker socket for service control
+      - .:/app/thermal:ro  # Access to compose file for project context
+    environment:
+      - TEMP_THRESHOLD=91                          # Temperature threshold in Celsius
+      - CHECK_INTERVAL=30                          # Check interval in seconds
+      - ENABLE_THERMAL_MANAGEMENT=true             # Enable/disable thermal management
+      - COMPOSE_PROJECT_NAME=thermal               # Docker compose project name
+      - SERVICES_TO_CONTROL=system-monitor,motioneye,mosquitto         # Services to stop when overheated (coma-separated, i.e. system-monitor,example-service)
+    working_dir: /app/thermal
+    network_mode: host
+
+
+  # System monitor (optional - for observability)
+  # This service will be stopped when temperature > 91°C
+  system-monitor:
+    image: prom/node-exporter:latest
+    container_name: system-monitor
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    network_mode: host
+
   # MediaMTX Service (RTSP server) https://github.com/bluenviron/mediamtx?tab=readme-ov-file#rtsp-clients
   mediamtx:
     image: bluenviron/mediamtx:latest-ffmpeg-rpi
@@ -8,6 +48,8 @@ services:
     build:
       context: .
     privileged: true
+    env_file:
+      - .env
     environment:
       - MTX_RTSPTRANSPORTS=tcp,udp
       - MTX_WEBRTCADDITIONALHOSTS=192.168.50.57
@@ -16,6 +58,7 @@ services:
       - "1935:1935"  # RTMP Port (if needed)
       - "8888:8888"  # HTTP Port (if needed)
     devices:
+      - "/dev/video-alcorlink:/dev/video1"
       - "/dev:/dev"
     volumes:
       - ./tmp:/tmp  # Optional: if you need to access logs or other shared data
@@ -34,6 +77,8 @@ services:
     privileged: true
     build:
       context: .
+    env_file:
+      - .env
     ports:
       - "8765:8765"
       - "8081:8081"
@@ -58,13 +103,14 @@ services:
 #    environment:
 #      - PUID=1883
 #      - PGID=1883
+    network_mode: host
     volumes:
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - ./mosquitto.pass:/etc/mosquitto.pass:rw
       - ./mosquitto/log:/mosquitto/log
       - ./mosquitto/data:/mosquitto/data
-    network_mode: host
-    
+
+
 # # This is an independed lightweight streaming with ffmpeg. It can be used instead of direct invocation of ffmpeg command in the mediamtx.xml file
 # # Its good if you don't want to install ffmpeg libraries on the device or you don't want to use the built-in ffmpeg in the mediamtx
 #  alpine-stream:
@@ -76,6 +122,7 @@ services:
 #    devices:
 #      - /dev/video1:/dev/video1
 #    environment:
+#      #- RESOLUTION=1440x810
 #      - RESOLUTION=1280x768
 #      - FRAME_RATE=5
 #      - DEVICE=/dev/video1
